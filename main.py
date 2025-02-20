@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.memory import MemoryJobStore
 from datetime import datetime
@@ -7,6 +7,14 @@ import logging
 import os
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
+from fastapi.middleware.cors import CORSMiddleware
+
+origins = [
+    "http://localhost",
+    "http://localhost:8080",
+    "http://localhost:5173",
+    "https://react-frontend-production-81f7.up.railway.app"
+]
 
 
 # Configuration management
@@ -24,6 +32,16 @@ logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="API Monitor")
+
+# Add CORSMiddleware to the app
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 scheduler = AsyncIOScheduler(jobstores={'default': MemoryJobStore()})
 
 class MonitoringConfig:
@@ -116,6 +134,15 @@ async def get_status():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.post("/callback")
+async def handle_callback(request: Request):
+    """Handle incoming callbacks from outside"""
+    
+    payload = await request.json()
+    logger.info(f"Received callback: {datetime.now()} with payload: {payload}")
+    
+    return {"status": "Callback received"}
 
 @app.on_event("startup")
 async def startup_event():
